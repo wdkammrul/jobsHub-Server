@@ -6,11 +6,11 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors()); app.use(express.json());
+app.use(cors());
+app.use(express.json());
 console.log(process.env.DB_PASS);
 console.log(process.env.DB_USER);
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3pfigzq.mongodb.net/?retryWrites=true&w=majority`;
-
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -22,7 +22,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    
     // await client.connect();
 
     const jobCollection = client.db("jobsHub").collection("allJobs");
@@ -34,14 +33,58 @@ async function run() {
       res.send(result);
     });
 
-
-    app.post("/allJobs", async (req, res) => {
-      const job = req.body;
-      console.log(job)
-      const result = await jobCollection.insertOne(job);
+    app.patch("/allJobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedItem = {
+        $set: {
+          jobTitle: data.jobTitle,
+          logo: data.logo,
+          username: data.username,
+          salaryRange: data.salaryRange,
+          category: data.category,
+          description: data.description,
+          picture: data.picture,
+          jobApplicatsNumber: data.jobApplicatsNumber,
+          jobPostingDate: data.jobPostingDate,
+          deadline: data.deadline,
+        },
+      };
+      const result = await jobCollection.updateOne(
+        filter,
+        updatedItem,
+        options
+      );
       res.send(result);
     });
 
+    app.get("/allJobs/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = {
+          email: email,
+        };
+        const result = await jobCollection.find(query).toArray();
+        console.log(result);
+        if (!result) {
+          res.status(404).send("Item not found");
+          return;
+        }
+        res.send(result);
+      } catch {
+        console.error("Error:");
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.post("/allJobs", async (req, res) => {
+      const job = req.body;
+      console.log(job);
+      const result = await jobCollection.insertOne(job);
+      res.send(result);
+    });
 
     app.get("/apply", async (req, res) => {
       const cursor = applicationCollection.find();
@@ -49,10 +92,9 @@ async function run() {
       res.send(result);
     });
 
-
     app.post("/apply", async (req, res) => {
       const apply = req.body;
-      console.log(apply)
+      console.log(apply);
       const result = await applicationCollection.insertOne(apply);
       res.send(result);
     });
